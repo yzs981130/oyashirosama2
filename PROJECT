@@ -1,0 +1,7 @@
+version: "2"
+domain: openi.cn
+repo: openi.cn
+resources:
+- group: schedule
+  version: v1
+  kind: Testjob

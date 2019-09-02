@@ -1,0 +1,7 @@
+apiVersion: schedule.openi.cn/v1
+kind: Testjob
+metadata:
+  name: testjob-sample
+spec:
+  # Add fields here
+  foo: bar
