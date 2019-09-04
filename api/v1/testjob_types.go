@@ -26,12 +26,15 @@ import (
 type TestjobSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	CPU    string `json:"cpu"`
+	Memory string `json:"memory"`
 }
 
 // TestjobStatus defines the observed state of Testjob
 type TestjobStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	State JobState `json:"state"`
 }
 
 // +kubebuilder:object:root=true
@@ -57,3 +60,12 @@ type TestjobList struct {
 func init() {
 	SchemeBuilder.Register(&Testjob{}, &TestjobList{})
 }
+
+type JobState string
+
+const (
+	JobStart  JobState = "JobStarting"
+	JobStop   JobState = "JobStoping"
+	JobRun    JobState = "JobRunning"
+	JobFinish JobState = "JobFinished"
+)
