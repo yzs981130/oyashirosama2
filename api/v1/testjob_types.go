@@ -38,7 +38,7 @@ type TestjobStatus struct {
 }
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:subresource:status
 // Testjob is the Schema for the testjobs API
 type Testjob struct {
 	metav1.TypeMeta   `json:",inline"`

@@ -17,6 +17,8 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"log"
 
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,10 +37,22 @@ type TestjobReconciler struct {
 // +kubebuilder:rbac:groups=schedule.openi.cn,resources=testjobs/status,verbs=get;update;patch
 
 func (r *TestjobReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
+	ctx := context.Background()
 	_ = r.Log.WithValues("testjob", req.NamespacedName)
 
 	// your logic here
+	testjob := &schedulev1.Testjob{}
+	if err := r.Get(ctx, req.NamespacedName, testjob); err != nil {
+		log.Println("unable to fetch testjob")
+	} else {
+		fmt.Println(testjob.Spec.CPU, testjob.Spec.Memory)
+	}
+
+	testjob.Status.State = schedulev1.JobRun
+	if err := r.Status().Update(ctx, testjob); err != nil {
+		fmt.Println(err)
+		log.Println("unable to update testjob status")
+	}
 
 	return ctrl.Result{}, nil
 }

@@ -11,6 +11,8 @@ spec:
     kind: Testjob
     plural: testjobs
   scope: ""
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: Testjob is the Schema for the testjobs API
