@@ -7,6 +7,24 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - schedule
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - schedule
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
   - schedule.openi.cn
   resources:
   - testjobs
