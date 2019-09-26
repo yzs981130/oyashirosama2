@@ -23,7 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/robfig/cron"
-	kbatch "k8s.io/api/batch/v1"
+	//kbatch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,8 +63,6 @@ func ignoreNotFound(err error) error {
 
 // +kubebuilder:rbac:groups=schedule.openi.cn,resources=testjobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=schedule.openi.cn,resources=testjobs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=schedule,resources=jobs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=schedule,resources=jobs/status,verbs=get
 
 var (
 	scheduledTimeAnnotation = "openi.cn/scheduled-at"
@@ -85,21 +83,21 @@ func (r *TestjobReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	//list
-	var childJobs kbatch.JobList
+	var childJobs schedulev1.TestjobList
 	if err := r.List(ctx, &childJobs, client.InNamespace(req.Namespace), client.MatchingField(jobOwnerKey, req.Name)); err != nil {
 		log.Error(err, "unable to list child Jobs")
 		return ctrl.Result{}, err
 	}
 
 	//update
-	var activeJobs []*kbatch.Job
-	var successfulJobs []*kbatch.Job
-	var failedJobs []*kbatch.Job
+	var activeJobs []*schedulev1.Testjob
+	var successfulJobs []*schedulev1.Testjob
+	var failedJobs []*schedulev1.Testjob
 	var mostRecentTime *time.Time
 
-	isJobFinished := func(job *kbatch.Job) (bool, kbatch.JobConditionType) {
+	isJobFinished := func(job *schedulev1.Testjob) (bool, schedulev1.JobConditionType) {
 		for _, c := range job.Status.Conditions {
-			if (c.Type == kbatch.JobComplete || c.Type == kbatch.JobFailed) && c.Status == corev1.ConditionTrue {
+			if (c.Type == schedulev1.JobComplete || c.Type == schedulev1.JobFailed) && c.Status == corev1.ConditionTrue {
 				return true, c.Type
 			}
 		}
@@ -107,7 +105,7 @@ func (r *TestjobReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return false, ""
 	}
 
-	getScheduledTimeForJob := func(job *kbatch.Job) (*time.Time, error) {
+	getScheduledTimeForJob := func(job *schedulev1.Testjob) (*time.Time, error) {
 		timeRaw := job.Annotations[scheduledTimeAnnotation]
 		if len(timeRaw) == 0 {
 			return nil, nil
@@ -125,9 +123,9 @@ func (r *TestjobReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		switch finishedType {
 		case "": // ongoing
 			activeJobs = append(activeJobs, &childJobs.Items[i])
-		case kbatch.JobFailed:
+		case schedulev1.JobFailed:
 			failedJobs = append(failedJobs, &childJobs.Items[i])
-		case kbatch.JobComplete:
+		case schedulev1.JobComplete:
 			successfulJobs = append(successfulJobs, &childJobs.Items[i])
 		}
 
@@ -278,24 +276,24 @@ func (r *TestjobReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	}
 
-	constructJobForTestJob := func(testjob *schedulev1.Testjob, scheduledTime time.Time) (*kbatch.Job, error) {
+	constructJobForTestJob := func(testjob *schedulev1.Testjob, scheduledTime time.Time) (*schedulev1.Testjob, error) {
 		// We want job names for a given nominal start time to have a deterministic name to avoid the same job being created twice
 		name := fmt.Sprintf("%s-%d", testjob.Name, scheduledTime.Unix())
 
-		job := &kbatch.Job{
+		job := &schedulev1.Testjob{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels:      make(map[string]string),
 				Annotations: make(map[string]string),
 				Name:        name,
 				Namespace:   testjob.Namespace,
 			},
-			Spec: *testjob.Spec.JobTemplate.Spec.DeepCopy(),
+			Spec: testjob.Spec,
 		}
-		for k, v := range testjob.Spec.JobTemplate.Annotations {
+		for k, v := range testjob.Annotations {
 			job.Annotations[k] = v
 		}
 		job.Annotations[scheduledTimeAnnotation] = scheduledTime.Format(time.RFC3339)
-		for k, v := range testjob.Spec.JobTemplate.Labels {
+		for k, v := range testjob.Labels {
 			job.Labels[k] = v
 		}
 		if err := ctrl.SetControllerReference(testjob, job, r.Scheme); err != nil {
@@ -333,9 +331,9 @@ func (r *TestjobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Clock = realClock{}
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(&kbatch.Job{}, jobOwnerKey, func(rawObj runtime.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(&schedulev1.Testjob{}, jobOwnerKey, func(rawObj runtime.Object) []string {
 		// grab the job object, extract the owner...
-		job := rawObj.(*kbatch.Job)
+		job := rawObj.(*schedulev1.Testjob)
 		owner := metav1.GetControllerOf(job)
 		if owner == nil {
 			return nil
@@ -352,6 +350,6 @@ func (r *TestjobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&schedulev1.Testjob{}).
-		Owns(&kbatch.Job{}).
+		Owns(&schedulev1.Testjob{}).
 		Complete(r)
 }
